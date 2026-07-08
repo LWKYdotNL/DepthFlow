@@ -12,9 +12,11 @@ import math
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 from attrs import define
 from depthflow.estimators.anything import DepthAnythingV2
 from depthflow.scene import DepthScene
+from PIL import Image
 
 
 # --------------------------------------------------------------------------- #
@@ -24,49 +26,49 @@ INPUTS_DIR = Path.home() / "Desktop" / "DepthFlow"  # Folder with source images.
 
 IMAGE_EXTENSIONS = ("jpg", "jpeg", "png")  # File types to include: "jpg", "jpeg", "png".
 
-DEPTH_MODEL = DepthAnythingV2.Model.Large  # Depth model: Small, Base, Large, Giant.
+DEPTH_MODEL = DepthAnythingV2.Model.Large  # Depth model: Small, Base, Large.
 
 # Change only this value to switch style quickly.
-ACTIVE_PRESET = "horizontal"  # Preset: "horizontal", "vertical", "zoom" or "dolly".
+ACTIVE_PRESET = "dolly"  # Preset: "horizontal", "vertical", "zoom" or "dolly".
 
 # Horizontal style settings.
 H_LOOP_COUNT = 10  # Number of horizontal swings.
-H_LOOP_TIME_SECONDS = 0.3  # Duration of one horizontal swing.
-H_MOTION_AMPLITUDE = 0.10  # Strength of left-right movement.
-H_MOTION_SPEED = 0.65  # Motion pacing multiplier.
+H_LOOP_TIME_SECONDS = 0.5   # Duration of one horizontal swing.
+H_MOTION_AMPLITUDE = 0.05  # Strength of left-right movement.
 H_ISOMETRIC = 0.45  # Perspective angle amount.
 H_STEADY = 0.24  # How anchored the subject feels.
 
 # Vertical style settings.
 V_LOOP_COUNT = 10  # Number of vertical swings.
 V_LOOP_TIME_SECONDS = 0.3  # Duration of one vertical swing.
-V_MOTION_AMPLITUDE = 0.10  # Strength of up-down movement.
-V_MOTION_SPEED = 0.65  # Motion pacing multiplier.
+V_MOTION_AMPLITUDE = 0.08  # Strength of up-down movement.
 V_ISOMETRIC = 0.45  # Perspective angle amount.
 V_STEADY = 0.24  # How anchored the subject feels.
 
 # Zoom style settings.
-Z_LOOP_COUNT = 4  # Number of zoom pulses.
+Z_LOOP_COUNT = 5  # Number of zoom pulses.
 Z_LOOP_TIME_SECONDS = .75  # Duration of one zoom pulse.
 Z_HEIGHT = 0.15  # Zoom intensity for the zoom preset.
-Z_ISOMETRIC = 0.15  # Perspective angle amount.
-Z_STEADY = 0.20  # How anchored the subject feels.
+Z_ISOMETRIC = 0.4  # Perspective angle amount.
+Z_STEADY = 0.5  # How anchored the subject feels.
 
 # Dolly zoom settings.
-D_LOOP_COUNT = 4  # Number of dolly cycles.
+D_LOOP_COUNT = 5  # Number of dolly cycles.
 D_LOOP_TIME_SECONDS = .75  # Duration of one dolly cycle.
-D_HEIGHT = 0.10  # Main dolly intensity: stronger depth movement.
+D_HEIGHT = 0.05  # Main dolly intensity: stronger depth movement.
 D_STEADY = 0.35  # How anchored the subject feels.
 D_FOCUS = 0.35  # Depth plane used as the focus anchor.
 D_ZOOM = 0.99  # Base framing/zoom level.
 
-VIDEO_FPS = 24  # Output frames per second.
+VIDEO_FPS = 12  # Output frames per second.
 VIDEO_PRESET = "slow"  # Encoder preset: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow.
 VIDEO_CRF = 20  # Lower = sharper image, larger files.
 VIDEO_PROFILE = "high"  # H.264 profile: baseline, main, high, high10, high422, high444p.
 VIDEO_TUNE = "film"  # Encoder tune: film, animation, grain, stillimage, fastdecode, zerolatency.
+VIDEO_QUALITY = 100  # Ray-marching quality for parallax reconstruction.
+VIDEO_SSAA = 2  # Supersampling anti-aliasing factor.
 
-MAX_LONG_SIDE = 3000  # Set None for native size, or cap longest side.
+MAX_LONG_SIDE = 4000  # Set None for native size, or cap longest side.
 
 # --------------------------------------------------------------------------- #
 
@@ -75,7 +77,7 @@ class Horizontal(DepthScene):
     """Simple horizontal parallax preset."""
 
     def update(self) -> None:
-        phase = self.cycle * H_MOTION_SPEED * H_LOOP_COUNT
+        phase = self.cycle * H_LOOP_COUNT
         self.state.offset = (H_MOTION_AMPLITUDE * math.sin(phase), 0.0)
         self.state.isometric = H_ISOMETRIC
         self.state.steady = H_STEADY
@@ -86,7 +88,7 @@ class Vertical(DepthScene):
     """Simple vertical parallax preset."""
 
     def update(self) -> None:
-        phase = self.cycle * V_MOTION_SPEED * V_LOOP_COUNT
+        phase = self.cycle * V_LOOP_COUNT
         self.state.offset = (0.0, V_MOTION_AMPLITUDE * math.sin(phase))
         self.state.isometric = V_ISOMETRIC
         self.state.steady = V_STEADY
@@ -127,6 +129,11 @@ def _fit_resolution(width: int, height: int, max_long_side: int | None = MAX_LON
     out_w = max(2, _even(int(round(width * scale))))
     out_h = max(2, _even(int(round(height * scale))))
     return (out_w, out_h)
+
+
+def _load_rgb_image(path: Path) -> np.ndarray:
+    with Image.open(path) as image:
+        return np.array(image.convert("RGB"))
 
 
 def main() -> None:
@@ -185,7 +192,7 @@ def main() -> None:
     for image in files:
         output = outputs / f"{image.stem}.mp4"
         print(f"Rendering: {image.name} -> {output.name}")
-        scene.input(image=image)
+        scene.input(image=_load_rgb_image(image))
 
         image_width, image_height = scene.image.size
         out_width, out_height = _fit_resolution(image_width, image_height)
@@ -197,6 +204,8 @@ def main() -> None:
             width=out_width,
             height=out_height,
             ratio=(image_width / image_height),
+            quality=VIDEO_QUALITY,
+            ssaa=VIDEO_SSAA,
         )
 
     print(f"Done. Exported {len(files)} video(s) to: {outputs}")

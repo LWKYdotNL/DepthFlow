@@ -7,6 +7,7 @@ site
 # Python bytecode
 __pycache__/
 *.py[cod]
+.venv/
 
 # VS Code workspace files: keep the task definition, ignore the rest
 .vscode/*
