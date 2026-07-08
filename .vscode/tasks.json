@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"inputs": [
+		{
+			"id": "flowMotionInputDir",
+			"type": "promptString",
+			"description": "Input folder path (e.g. ~/Desktop/Depthflow)",
+			"default": "~/Desktop/Depthflow"
+		}
+	],
+	"tasks": [
+		{
+			"label": "Run Wigglegram Batch",
+			"type": "shell",
+			"command": ".venv/bin/python",
+			"args": [
+				"examples/WiggleGram.py",
+				"--inputs",
+				"${input:flowMotionInputDir}"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}

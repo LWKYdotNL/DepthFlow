@@ -1,2 +1,13 @@
 .cache
 site
+
+# macOS
+.DS_Store
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# VS Code workspace files: keep the task definition, ignore the rest
+.vscode/*
+!.vscode/tasks.json
