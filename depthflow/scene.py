@@ -80,6 +80,12 @@ class DepthScene(ShaderScene):
         elif not isinstance(image, np.ndarray):
             image = imageio.imread(image)
 
+        # Normalize grayscale/single-channel inputs for estimators expecting HxWxC.
+        if image.ndim == 2:
+            image = np.repeat(image[..., None], 3, axis=2)
+        elif (image.ndim == 3) and (image.shape[-1] == 1):
+            image = np.repeat(image, 3, axis=2)
+
         if depth is None:
             depth = self.estimator.estimate(image)
         elif isinstance(depth, PilImage):
